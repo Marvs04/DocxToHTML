@@ -1,37 +1,35 @@
-# Núcleo del generador (lógica + plantillas)
+# Generator core (logic + templates)
 
-Esta carpeta contiene la lógica principal para convertir DOCX a HTML/PDF (parsing, transformación, templates y escritura). Los puntos de entrada del proyecto son:
+This folder contains the core logic to convert DOCX into HTML/PDF (parsing, transformation, templates, and output writing). Project entrypoints live at the repository root:
 
 - `main.py` (GUI)
 - `generate_html.py` (CLI)
 
-## Objetivo
+## Goal
 
-- Conservar la funcionalidad actual.
-- Mantener la misma entrada principal: leer uno o varios archivos DOCX desde una carpeta.
-- Mantener la misma estructura de salida: carpetas por documento, cuatrimestre, clase y semana.
-- Mantener el mismo HTML generado, salvo ajustes explícitos solicitados en el futuro.
-- Permitir escalar a múltiples cuatrimestres y decenas de clases por documento.
+- Preserve the current behavior/output.
+- Keep the same main entrypoint behavior: read one or more DOCX files from a folder.
+- Keep the same output structure: folders per document, term, class, and week.
+- Keep the same generated HTML unless changes are explicitly requested later.
+- Scale to multiple terms and dozens of classes per document.
 
-## Principios de trabajo
+## Working principles
 
-- No modificar `generate_html.py` como punto de entrada hasta validar paridad.
-- Mover responsabilidades por fases, no reescribir todo de una vez.
-- Validar cada fase contra el mismo DOCX de referencia.
-- Mantener separados parsing, transformación, renderizado y escritura.
+- Do not change `generate_html.py` as an entrypoint until parity is validated.
+- Move responsibilities in phases; don’t rewrite everything at once.
+- Validate each phase against the same reference DOCX.
+- Keep parsing, transformation, rendering, and writing separate.
 
-## Estructura propuesta
+## Proposed structure
 
-- `generator.py`: orquestación principal.
-- `docx_reader.py`: lectura del documento y localización de bloques/tablas.
-- `section_parser.py`: extracción semántica de secciones desde párrafos.
-- `schedule_parser.py`: parsing del cronograma y semanas.
-- `transformers.py`: conversión a estructuras listas para renderizar.
-- `templates.py`: plantillas Jinja y cargadores de templates.
-- `writer.py`: nombres seguros, carpetas y escritura de archivos.
-- `parity_checklist.md`: lista de validación para no perder funcionalidad.
-- `migration_map.md`: mapeo de funciones actuales hacia módulos nuevos.
+- `generator.py`: main orchestration.
+- `docx_reader.py`: reads the document and locates blocks/tables.
+- `section_parser.py`: extracts semantic sections from paragraphs.
+- `schedule_parser.py`: parses the schedule and weeks.
+- `transformers.py`: converts raw data into render-ready structures.
+- `templates.py`: Jinja templates.
+- `writer.py`: safe names, folders, and file writing.
 
-## Estado actual
+## Current status
 
-La generación se realiza desde `generator_refactor/` y es invocada por `main.py` / `generate_html.py`.
+Generation happens in `generator_refactor/` and is invoked by `main.py` / `generate_html.py`.

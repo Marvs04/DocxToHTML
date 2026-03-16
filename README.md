@@ -1,40 +1,40 @@
-# DocxToHTML (OpenLMS) — Generador de cursos HTML desde DOCX
+# DocxToHTML (OpenLMS) — Generate LMS-ready HTML from DOCX
 
-Convierte documentos Word (`.docx`) de cursos universitarios en **HTML compatible con plataformas LMS** (ej. OpenLMS) y genera **PDFs** (rúbricas / cronograma) enlazados desde el HTML.
+Convert university course Word documents (`.docx`) into **LMS-compatible HTML** (e.g., OpenLMS) and generate **PDFs** (rubrics / schedule) linked directly from the HTML.
 
-Este proyecto se creó para **apoyar procesos de revisión de carreras por parte de CONESUP** y para instituciones que deben enviar/convertir “**Tomos**” completos de carreras universitarias. Fue probado con un documento de **más de 1100 páginas** sin inconvenientes. También sirve para docentes o instituciones que quieran trasladar clases o carreras enteras a un LMS basado en HTML.
+This project was built to **support degree-program reviews for CONESUP** and to help institutions that must submit/convert full “**Tomos**” (entire degree programs bundled into large documents). It was tested with a document of **1100+ pages** without issues. It’s also useful for instructors or institutions migrating full courses or complete programs into an HTML-based LMS.
 
-## V1 vs V2 (importante)
+## V1 vs V2 (important)
 
-- **V1**: genera HTML siguiendo el **blueprint / formato oficial** con el que la oficina **importa actualmente** cursos al LMS. **No es “mi forma” de escribir HTML**, es el formato que la institución ya tenía establecido.
-- **V2**: es **mi propuesta** (“mi take”) sobre el mismo contenido: mejoras visuales y de experiencia manteniendo la compatibilidad.
+- **V1**: outputs HTML that follows the **official blueprint / format** currently used by the office to import courses into the LMS. **This is not “how I write HTML”**—it matches the institution’s established import format.
+- **V2**: **my take** on the same content: improved UX/visuals while keeping compatibility.
 
-## Características
+## Features
 
-- Conversión automática de `.docx` a HTML estructurado por cuatrimestre / clase / semana.
-- Generación de PDFs (rúbricas y cronograma) y enlaces dentro del HTML.
-- Soporte para documentos grandes (probado con >1100 páginas).
-- Interfaz gráfica (Tkinter) con **arrastrar y soltar**.
-- Modo CLI para automatizar por carpeta.
-- Plantillas V1 y V2.
+- Automatic `.docx` → HTML conversion, organized by term / class / week.
+- PDF generation (rubrics and schedule) with links inside the HTML.
+- Handles large documents (tested with 1100+ pages).
+- GUI (Tkinter) with **drag & drop**.
+- CLI mode for batch processing.
+- V1 and V2 templates.
 
-## Estructura del proyecto
+## Project layout
 
-- `main.py`: aplicación GUI.
-- `generate_html.py`: ejecución por línea de comandos (CLI).
-- `generator_refactor/`: lógica principal de parsing, transformación, plantillas y escritura.
-- `packaging/pyinstaller/`: configuración para compilar `.exe`.
+- `main.py`: GUI app.
+- `generate_html.py`: CLI entrypoint.
+- `generator_refactor/`: core parsing/transformation/templates/writing logic.
+- `packaging/pyinstaller/`: build config to create a Windows `.exe`.
 
-## Requisitos
+## Requirements
 
 - Python **3.8+**
-- Dependencias (se instalan con `requirements.txt`):
+- Dependencies (installed via `requirements.txt`):
   - `python-docx`
   - `jinja2`
   - `reportlab`
   - `tkinterdnd2`
 
-## Instalación (recomendado con entorno virtual)
+## Installation (recommended: virtual environment)
 
 ```bash
 python -m venv .venv
@@ -42,33 +42,33 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## Uso (GUI)
+## Usage (GUI)
 
 ```bash
 python main.py
 ```
 
-- Arrastra y suelta archivos `.docx` o selecciónalos con el botón.
-- Elige **V1** o **V2**.
-- La salida (HTML/PDF) se genera en la **misma carpeta** del `.docx` (según la lógica actual del generador).
+- Drag and drop `.docx` files (or select them via the button).
+- Choose **V1** or **V2**.
+- Output (HTML/PDF) is generated in the **same folder** as the input `.docx` (current generator behavior).
 
-## Uso (CLI)
+## Usage (CLI)
 
 ```bash
 python generate_html.py <input_dir> <out_dir>
 ```
 
-## Compilar ejecutable (opcional)
+## Build an executable (optional)
 
 ```bash
 python -m pip install -r requirements-dev.txt
 pyinstaller packaging/pyinstaller/GeneradorHTML.spec
 ```
 
-## Licencia
+## License
 
-MIT — ver `LICENSE`.
+MIT — see `LICENSE`.
 
-## Autor
+## Author
 
 Marvs04
