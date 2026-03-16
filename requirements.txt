@@ -1,0 +1,5 @@
+python-docx
+jinja2
+reportlab
+tkinterdnd2
+

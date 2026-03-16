@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docxtohtml-openlms"
+version = "0.1.0"
+description = "Convert DOCX university course documents into LMS-friendly HTML (OpenLMS)."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "Marvs04"}]
+dependencies = [
+  "python-docx",
+  "jinja2",
+  "reportlab",
+  "tkinterdnd2",
+]
+
+[project.optional-dependencies]
+dev = ["pyinstaller"]
+
+[tool.setuptools]
+py-modules = ["main", "generate_html"]
+packages = ["generator_refactor"]
+
