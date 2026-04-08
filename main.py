@@ -8,7 +8,7 @@ from tkinter import filedialog, scrolledtext, ttk
 
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
-from generator_refactor.generator import generate_file
+from generator_refactor.generator import generate_file, generate_pdfs_only_file
 
 AZUL    = "#002E62"
 AMARILLO= "#FDC82C"
@@ -45,6 +45,18 @@ class App(TkinterDnD.Tk):
         # ── Encabezado ──────────────────────────────────────────────────
         hdr = tk.Frame(self, bg=AZUL, pady=14)
         hdr.pack(fill="x")
+        # Logo UNADECA
+        logo_path = os.path.join(os.path.dirname(__file__), "generator_refactor", "UNADECA_Logo_Virtual_Oficial-H.png")
+        try:
+            from PIL import Image, ImageTk
+            logo_img = Image.open(logo_path)
+            logo_img = logo_img.resize((120, 38), Image.LANCZOS)
+            logo_tk = ImageTk.PhotoImage(logo_img)
+            logo_label = tk.Label(hdr, image=logo_tk, bg=AZUL)
+            logo_label.image = logo_tk
+            logo_label.pack(pady=(0, 4))
+        except Exception as e:
+            tk.Label(hdr, text="[Logo no disponible]", font=("Segoe UI", 10), fg=AMARILLO, bg=AZUL).pack()
         tk.Label(hdr, text="Generador de Cursos HTML",
                  font=("Segoe UI", 15, "bold"), fg=BLANCO, bg=AZUL).pack()
         tk.Label(hdr, text="Arrastra tus archivos .docx o usa el botón",
@@ -64,7 +76,7 @@ class App(TkinterDnD.Tk):
         tk.Label(self.drop_frame, text="(puedes soltar varios a la vez)",
                  font=("Segoe UI", 9), fg="#64748b", bg=BLANCO).pack()
 
-        # ── Botones: seleccionar + cancelar ────────────────────────────────
+        # ── Botones: seleccionar + solo PDFs + cancelar ─────────────────────
         btn_row = tk.Frame(self, bg=FONDO)
         btn_row.pack(pady=10)
         self.btn_browse = tk.Button(btn_row, text="Seleccionar archivos .docx",
@@ -72,7 +84,13 @@ class App(TkinterDnD.Tk):
                   bg=AMARILLO, fg=AZUL, activebackground="#e6b800",
                   relief="flat", cursor="hand2", padx=16, pady=8,
                   command=self._on_browse)
-        self.btn_browse.pack(side="left", padx=(0, 8))
+        self.btn_browse.pack(side="left", padx=(0, 6))
+        self.btn_pdf_only = tk.Button(btn_row, text="📄  Solo PDFs",
+                  font=("Segoe UI", 10, "bold"),
+                  bg="#dbeafe", fg=AZUL, activebackground="#bfdbfe",
+                  relief="flat", cursor="hand2", padx=12, pady=8,
+                  command=self._on_pdf_only)
+        self.btn_pdf_only.pack(side="left", padx=(0, 6))
         self.btn_cancel = tk.Button(btn_row, text="✕  Cancelar",
                   font=("Segoe UI", 10, "bold"),
                   bg="#e2e8f0", fg="#6b7280", activebackground="#fca5a5",
@@ -155,6 +173,13 @@ class App(TkinterDnD.Tk):
         self.log.tag_config("err",  foreground="#f87171")
         self.log.tag_config("info", foreground="#93c5fd")
         self.log.tag_config("dim",  foreground="#64748b")
+        self.log.tag_config("warn", foreground="#fbbf24")
+
+        # Pie de ventana: texto pequeño
+        footer = tk.Frame(self, bg=FONDO)
+        footer.pack(fill="x", side="bottom", pady=(0, 2))
+        tk.Label(footer, text="Made for Departamento de Educacion Virtual by MM.",
+             font=("Segoe UI", 8), fg="#64748b", bg=FONDO, anchor="e").pack(fill="x", padx=8)
 
     # ── Eventos ──────────────────────────────────────────────────────────
     def _on_drop(self, event):
@@ -167,15 +192,28 @@ class App(TkinterDnD.Tk):
         if paths:
             self._run(list(paths))
 
+    def _on_pdf_only(self):
+        paths = filedialog.askopenfilenames(
+            title="Seleccionar archivos .docx — Solo PDFs",
+            filetypes=[("Documentos Word", "*.docx")])
+        if paths:
+            self.cancel_event.clear()
+            self.after(0, self._set_running_state)
+            threading.Thread(target=self._generate_pdfs_only, args=(list(paths),), daemon=True).start()
+
     def _on_cancel(self):
         self.cancel_event.set()
         self._log("  ⚠ Cancelando… (espere el proceso actual)\n", "err")
         self.after(0, lambda: self.btn_cancel.config(state="disabled"))
 
     def _set_running_state(self):
+        self.btn_browse.config(state="disabled")
+        self.btn_pdf_only.config(state="disabled")
         self.btn_cancel.config(state="normal", bg="#fee2e2", fg="#991b1b")
 
     def _set_idle_state(self):
+        self.btn_browse.config(state="normal")
+        self.btn_pdf_only.config(state="normal")
         self.btn_cancel.config(state="disabled", bg="#e2e8f0", fg="#6b7280")
 
     def _run(self, paths):
@@ -234,6 +272,45 @@ class App(TkinterDnD.Tk):
         elif event == 'pdf_item':
             idx, total, name = args
             self.after(0, lambda: self._set_pdf_progress(idx, total, name))
+        elif event == 'warn':
+            name, = args
+            short = name[:52] + '…' if len(name) > 52 else name
+            self.after(0, lambda n=short: self._log(f"    ⚠ Sin rúbricas detectadas: {n}\n", "warn"))
+
+    def _generate_pdfs_only(self, paths):
+        self.after(0, self._reset_progress)
+        self._log(f"── {len(paths)} archivo(s) — Solo PDFs ──\n", "info")
+        errores = 0
+        for path in paths:
+            if self.cancel_event.is_set():
+                break
+            path = path.strip('"').strip("'")
+            name = os.path.basename(path)
+            if not path.lower().endswith(".docx"):
+                self._log(f"  Omitiendo (no es .docx): {name}\n", "dim")
+                continue
+            if not os.path.isfile(path):
+                self._log(f"  No encontrado: {path}\n", "err")
+                errores += 1
+                continue
+            self.after(0, lambda n=name: self.stat_file.config(text=f"📄  {n}"))
+            self._log(f"\n{name}\n", "info")
+            out_dir = os.path.dirname(os.path.abspath(path))
+            try:
+                generate_pdfs_only_file(path, out_dir, on_progress=self._on_progress,
+                                        cancel_check=self.cancel_event.is_set)
+                self._log(f"  ✓ PDFs listos → {out_dir}\n", "ok")
+            except Exception as exc:
+                self._log(f"  ✗ {exc}\n", "err")
+                errores += 1
+        if self.cancel_event.is_set():
+            self._log("\n⚠ Cancelado.\n", "err")
+        elif errores:
+            self._log(f"\n⚠ {errores} error(es).\n", "err")
+        else:
+            self._log("\n✅ PDFs generados correctamente.\n", "ok")
+        self.after(0, lambda: self.prog_label.config(text="Completado"))
+        self.after(0, self._set_idle_state)
 
     def _set_stats(self, n_terms, n_classes):
         plural_t = "cuatrimestre" if n_terms == 1 else "cuatrimestres"

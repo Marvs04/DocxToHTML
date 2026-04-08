@@ -1,3 +1,5 @@
+
+
 """Lectura de documentos DOCX y localización de bloques del curso.
 
 Migrado literalmente desde generate_html.py para mantener paridad en la fase 1.
@@ -31,7 +33,7 @@ def parse_term_heading(text):
 
 def is_class_title(text):
 	t = (text or '').strip()
-	return bool(re.match(r'^[A-ZÁÉÍÓÚÑ]{2,}\d{3,}[a-zA-Z]?\s+.+', t))
+	return bool(re.match(r'^[A-ZÁÉÍÓÚÑ]{2,}-?\d{3,}[a-zA-Z]?\s+.+', t))
 
 
 def extract_class_blocks(doc):
@@ -75,7 +77,7 @@ def find_cronograma_tables(doc):
 
 def parse_course_identity(class_title):
 	t = (class_title or '').strip()
-	m = re.match(r'^([A-ZÁÉÍÓÚÑ]{2,}\d{3,}[a-zA-Z]?)\s+(.+)$', t)
+	m = re.match(r'^([A-ZÁÉÍÓÚÑ]{2,}-?\d{3,}[a-zA-Z]?)\s+(.+)$', t)
 	if m:
 		return m.group(1).strip(), m.group(2).strip()
 	return '', t
@@ -102,30 +104,31 @@ def extract_rubricas_with_tables(doc, paragraphs):
 	tbl_elem_to_obj  = {t._element: t for t in doc.tables}
 
 	results = []
-	in_rubricas = False
+	rubrica_re = re.compile(r"^r[úu]bricas?\b", re.IGNORECASE)
 
 	for p in paragraphs:
 		t = p.text.strip()
 		low = t.lower()
-		if 'rúbricas evaluativas' in low or 'rubricas evaluativas' in low:
-			in_rubricas = True
-			continue
-		if in_rubricas and ('bibliograf' in low or 'observaciones generales' in low):
+		is_short = len(t) < 80
+		if is_short and (low.startswith('bibliograf') or low.startswith('observaciones')):
 			break
-		if in_rubricas and ('rúbrica para evaluar' in low or 'rubrica para evaluar' in low):
+		if is_short and (low.startswith('rúbricas evaluativas') or low.startswith('rubricas evaluativas')):
+			continue
+		if rubrica_re.match(t):
 			elem_idx = para_elem_to_idx.get(p._element)
 			rubrica_table = None
 			if elem_idx is not None:
+				# Buscar la siguiente tabla, ignorando párrafos vacíos
 				for el in elements[elem_idx + 1:]:
 					tag = el.tag.split('}')[-1] if '}' in el.tag else el.tag
 					if tag == 'tbl':
 						rubrica_table = tbl_elem_to_obj.get(el)
 						break
 					elif tag == 'p':
-						# Saltar párrafos vacíos; parar ante texto antes de la tabla
 						inner = ''.join(r.text or '' for r in el.iter() if r.tag.endswith('}t')).strip()
 						if inner:
-							break
-			results.append({'title': t, 'table': rubrica_table})
+							break  # Si hay texto, no es un salto vacío, parar
+						# Si está vacío, seguir buscando
+				results.append({'title': t, 'table': rubrica_table})
 
 	return results

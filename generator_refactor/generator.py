@@ -104,6 +104,8 @@ def _process_docx(docx_file, doc_out_dir, env, tmpl, week_tmpl, biblio_tmpl,
 			{'title': 'Recursos visuales y simulaciones', 'body': ['Material audiovisual, simuladores y recursos interactivos para aplicar conceptos en contextos prácticos.']},
 		]
 		rubricas_titles = extract_rubricas_from_paragraphs(class_block['paragraphs'])
+		if not rubricas_titles and on_progress:
+			on_progress('warn', class_name)
 		rubricas_items = [
 			{
 				'title': r,
@@ -137,6 +139,24 @@ def _process_docx(docx_file, doc_out_dir, env, tmpl, week_tmpl, biblio_tmpl,
 			cronograma_pdf_href=cronograma_pdf_href,
 		)
 		write_text_file(os.path.join(class_dir, build_class_html_name(class_name)), main_html)
+
+		# Generar archivos adicionales por clase: actividad.html y sesion_sincronica.html
+		actividad_src = os.path.join(os.path.dirname(__file__), 'actividad.html')
+		sesion_src = os.path.join(os.path.dirname(__file__), 'sesion_sincronica.html')
+		actividad_dst = os.path.join(class_dir, 'actividad.html')
+		sesion_dst = os.path.join(class_dir, 'sesion_sincronica.html')
+		try:
+			with open(actividad_src, 'r', encoding='utf-8') as f:
+				actividad_content = f.read()
+			write_text_file(actividad_dst, actividad_content)
+		except Exception as e:
+			print(f"[HTML] Error al copiar actividad.html: {e}")
+		try:
+			with open(sesion_src, 'r', encoding='utf-8') as f:
+				sesion_content = f.read()
+			write_text_file(sesion_dst, sesion_content)
+		except Exception as e:
+			print(f"[HTML] Error al copiar sesion_sincronica.html: {e}")
 
 		for weeks, units in weeks_map.items():
 			week_range = format_week_range(weeks)
@@ -203,6 +223,54 @@ def generate_file(docx_path, out_dir, on_progress=None, style='v1', cancel_check
 		except Exception as _e:
 			print(f"    [PDF] Error en '{job['class_name']}': {_e}")
 	print(f"✓ {doc_name}  →  {doc_out_dir}")
+
+
+def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=None):
+	"""Re-genera solo los PDFs de un DOCX sin tocar los HTMLs existentes."""
+	if not os.path.isfile(docx_path) or os.path.basename(docx_path).startswith("~$"):
+		print(f"Archivo no válido: {docx_path}")
+		return
+	doc_name = os.path.splitext(os.path.basename(docx_path))[0]
+	doc_out_dir = build_document_output_dir(out_dir, doc_name)
+	doc = Document(docx_path)
+	class_blocks = extract_class_blocks(doc)
+	if not class_blocks:
+		class_blocks = [{'title': doc_name, 'term': 'Sin cuatrimestre', 'paragraphs': doc.paragraphs}]
+
+	cron_tables = find_cronograma_tables(doc)
+	n_classes = len(class_blocks)
+
+	if on_progress:
+		on_progress('stats', 1, n_classes)
+		on_progress('pdf_start', n_classes)
+
+	for idx, class_block in enumerate(class_blocks):
+		if cancel_check and cancel_check():
+			return
+		class_name = class_block['title']
+		term_name = class_block['term']
+		if on_progress:
+			on_progress('pdf_item', idx + 1, n_classes, class_name)
+		_, class_dir = build_class_output_dir(doc_out_dir, term_name, class_name)
+		weeks_map = parse_cronograma(cron_tables[idx]) if idx < len(cron_tables) else {}
+
+		weeks_map_copy = dict(weeks_map)
+		for weeks, units in weeks_map_copy.items():
+			if len(weeks) > 1:
+				for week in weeks:
+					if tuple([week]) in weeks_map:
+						del weeks_map[tuple([week])]
+
+		rubricas_titles = extract_rubricas_from_paragraphs(class_block['paragraphs'])
+		if not rubricas_titles and on_progress:
+			on_progress('warn', class_name)
+
+		try:
+			_gen_pdfs(class_name, doc, class_block['paragraphs'], weeks_map, class_dir)
+		except Exception as _e:
+			print(f"  [PDF] Error en '{class_name}': {_e}")
+
+	print(f"✓ PDFs  {doc_name}  →  {doc_out_dir}")
 
 
 def generate(input_dir, out_dir, style='v1'):

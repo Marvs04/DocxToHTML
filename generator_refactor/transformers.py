@@ -240,15 +240,15 @@ def parse_competencias_cards(text):
 def extract_rubricas_from_paragraphs(paragraphs):
 	lines = [p.text.strip() for p in paragraphs if p.text.strip()]
 	rubricas = []
-	in_rubricas = False
+	rubrica_re = re.compile(r"^r[úu]bricas?\b", re.IGNORECASE)
 	for line in lines:
 		low = line.lower()
-		if 'rúbricas evaluativas' in low or 'rubricas evaluativas' in low:
-			in_rubricas = True
-			continue
-		if in_rubricas and ('bibliograf' in low or 'observaciones generales' in low):
+		is_short = len(line) < 80
+		if is_short and (low.startswith('bibliograf') or low.startswith('observaciones')):
 			break
-		if in_rubricas and ('rúbrica para evaluar' in low or 'rubrica para evaluar' in low):
+		if is_short and (low.startswith('rúbricas evaluativas') or low.startswith('rubricas evaluativas')):
+			continue
+		if rubrica_re.match(line):
 			rubricas.append(line)
 	return rubricas
 
