@@ -22,6 +22,7 @@ from generator_refactor.templates_v2 import (
 	SOCIAL_TEMPLATE_V2,
 	WEEK_TEMPLATE_V2,
 )
+from generator_refactor.diagnostics import DiagnosticCollector
 from generator_refactor.pdf_generator import generate_pdfs_for_class as _gen_pdfs
 from generator_refactor.transformers import (
 	build_estrategias_cards,
@@ -52,7 +53,7 @@ def _rubrica_pdf_filename(title):
 
 
 def _process_docx(docx_file, doc_out_dir, env, tmpl, week_tmpl, biblio_tmpl,
-                  on_progress=None, social_html='', cancel_check=None):
+                  on_progress=None, social_html='', cancel_check=None, diagnostics=None):
 	doc = Document(docx_file)
 	class_blocks = extract_class_blocks(doc)
 	if not class_blocks:
@@ -104,8 +105,11 @@ def _process_docx(docx_file, doc_out_dir, env, tmpl, week_tmpl, biblio_tmpl,
 			{'title': 'Recursos visuales y simulaciones', 'body': ['Material audiovisual, simuladores y recursos interactivos para aplicar conceptos en contextos prácticos.']},
 		]
 		rubricas_titles = extract_rubricas_from_paragraphs(class_block['paragraphs'])
-		if not rubricas_titles and on_progress:
-			on_progress('warn', class_name)
+		if not rubricas_titles:
+			if on_progress:
+				on_progress('warn', class_name)
+			if diagnostics:
+				diagnostics.report_missing_rubricas(class_name)
 		rubricas_items = [
 			{
 				'title': r,
@@ -191,10 +195,11 @@ def generate_file(docx_path, out_dir, on_progress=None, style='v1', cancel_check
 	"""Procesa un único archivo DOCX y escribe la salida en out_dir."""
 	if not os.path.isfile(docx_path) or os.path.basename(docx_path).startswith("~$"):
 		print(f"Archivo no válido: {docx_path}")
-		return
+		return {}
 	doc_name = os.path.splitext(os.path.basename(docx_path))[0]
 	doc_out_dir = build_document_output_dir(out_dir, doc_name)
 	env = Environment(autoescape=select_autoescape(['html', 'xml']))
+	diagnostics = DiagnosticCollector()
 	if style == 'v2':
 		tmpl        = env.from_string(MAIN_TEMPLATE_V2)
 		week_tmpl   = env.from_string(WEEK_TEMPLATE_V2)
@@ -208,7 +213,7 @@ def generate_file(docx_path, out_dir, on_progress=None, style='v1', cancel_check
 	# Fase 1: HTMLs
 	pdf_jobs = _process_docx(docx_path, doc_out_dir, env, tmpl, week_tmpl, biblio_tmpl,
 	                         on_progress=on_progress, social_html=social_html,
-	                         cancel_check=cancel_check)
+	                         cancel_check=cancel_check, diagnostics=diagnostics)
 	# Fase 2: PDFs (al final, para que la GUI no se bloquee durante la generación HTML)
 	if on_progress:
 		on_progress('pdf_start', len(pdf_jobs))
@@ -223,13 +228,15 @@ def generate_file(docx_path, out_dir, on_progress=None, style='v1', cancel_check
 		except Exception as _e:
 			print(f"    [PDF] Error en '{job['class_name']}': {_e}")
 	print(f"✓ {doc_name}  →  {doc_out_dir}")
+	# Return diagnostics summary for display in UI
+	return {'summary': diagnostics.format_summary(), 'has_issues': diagnostics.has_issues()}
 
 
 def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=None):
 	"""Re-genera solo los PDFs de un DOCX sin tocar los HTMLs existentes."""
 	if not os.path.isfile(docx_path) or os.path.basename(docx_path).startswith("~$"):
 		print(f"Archivo no válido: {docx_path}")
-		return
+		return {}
 	doc_name = os.path.splitext(os.path.basename(docx_path))[0]
 	doc_out_dir = build_document_output_dir(out_dir, doc_name)
 	doc = Document(docx_path)
@@ -239,6 +246,7 @@ def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=N
 
 	cron_tables = find_cronograma_tables(doc)
 	n_classes = len(class_blocks)
+	diagnostics = DiagnosticCollector()
 
 	if on_progress:
 		on_progress('stats', 1, n_classes)
@@ -246,7 +254,7 @@ def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=N
 
 	for idx, class_block in enumerate(class_blocks):
 		if cancel_check and cancel_check():
-			return
+			return {}
 		class_name = class_block['title']
 		term_name = class_block['term']
 		if on_progress:
@@ -262,8 +270,10 @@ def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=N
 						del weeks_map[tuple([week])]
 
 		rubricas_titles = extract_rubricas_from_paragraphs(class_block['paragraphs'])
-		if not rubricas_titles and on_progress:
-			on_progress('warn', class_name)
+		if not rubricas_titles:
+			if on_progress:
+				on_progress('warn', class_name)
+			diagnostics.report_missing_rubricas(class_name)
 
 		try:
 			_gen_pdfs(class_name, doc, class_block['paragraphs'], weeks_map, class_dir)
@@ -271,6 +281,8 @@ def generate_pdfs_only_file(docx_path, out_dir, on_progress=None, cancel_check=N
 			print(f"  [PDF] Error en '{class_name}': {_e}")
 
 	print(f"✓ PDFs  {doc_name}  →  {doc_out_dir}")
+	# Return diagnostics summary for display in UI
+	return {'summary': diagnostics.format_summary(), 'has_issues': diagnostics.has_issues()}
 
 
 def generate(input_dir, out_dir, style='v1'):

@@ -31,12 +31,14 @@ class App(TkinterDnD.Tk):
         self.configure(bg=FONDO)
         self.style_var = tk.StringVar(value='v1')
         self.cancel_event = threading.Event()
+        self.easter_egg_clicks = 0  # Logo click counter
+        self.marvin_clicks = 0  # Marvin M click counter
         self._build_ui()
         self._center()
 
     def _center(self):
         self.update_idletasks()
-        w, h = 560, 730
+        w, h = 560, 850
         x = (self.winfo_screenwidth()  - w) // 2
         y = (self.winfo_screenheight() - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
@@ -52,9 +54,10 @@ class App(TkinterDnD.Tk):
             logo_img = Image.open(logo_path)
             logo_img = logo_img.resize((120, 38), Image.LANCZOS)
             logo_tk = ImageTk.PhotoImage(logo_img)
-            logo_label = tk.Label(hdr, image=logo_tk, bg=AZUL)
+            logo_label = tk.Label(hdr, image=logo_tk, bg=AZUL, cursor="hand2")
             logo_label.image = logo_tk
             logo_label.pack(pady=(0, 4))
+            logo_label.bind("<Button-1>", self._on_logo_click)  # Easter egg
         except Exception as e:
             tk.Label(hdr, text="[Logo no disponible]", font=("Segoe UI", 10), fg=AMARILLO, bg=AZUL).pack()
         tk.Label(hdr, text="Generador de Cursos HTML",
@@ -76,43 +79,45 @@ class App(TkinterDnD.Tk):
         tk.Label(self.drop_frame, text="(puedes soltar varios a la vez)",
                  font=("Segoe UI", 9), fg="#64748b", bg=BLANCO).pack()
 
-        # ── Botones: seleccionar + solo PDFs + cancelar ─────────────────────
+        # ── Botones: seleccionar + solo PDFs (mismo tamaño) ──────────────
         btn_row = tk.Frame(self, bg=FONDO)
-        btn_row.pack(pady=10)
-        self.btn_browse = tk.Button(btn_row, text="Seleccionar archivos .docx",
-                  font=("Segoe UI", 10, "bold"),
-                  bg=AMARILLO, fg=AZUL, activebackground="#e6b800",
-                  relief="flat", cursor="hand2", padx=16, pady=8,
+        btn_row.pack(pady=14)
+        self.btn_browse = tk.Button(btn_row, text="📁  Seleccionar archivos",
+                  font=("Segoe UI", 11, "bold"),
+                  bg=AMARILLO, fg=AZUL, activebackground="#f4d03e",
+                  relief="flat", cursor="hand2", padx=16, pady=10, width=18,
                   command=self._on_browse)
-        self.btn_browse.pack(side="left", padx=(0, 6))
+        self.btn_browse.pack(side="left", padx=(0, 10))
         self.btn_pdf_only = tk.Button(btn_row, text="📄  Solo PDFs",
-                  font=("Segoe UI", 10, "bold"),
-                  bg="#dbeafe", fg=AZUL, activebackground="#bfdbfe",
-                  relief="flat", cursor="hand2", padx=12, pady=8,
+                  font=("Segoe UI", 11, "bold"),
+                  bg="#bfdbfe", fg=AZUL, activebackground="#93c5fd",
+                  relief="flat", cursor="hand2", padx=16, pady=10, width=14,
                   command=self._on_pdf_only)
-        self.btn_pdf_only.pack(side="left", padx=(0, 6))
-        self.btn_cancel = tk.Button(btn_row, text="✕  Cancelar",
+        self.btn_pdf_only.pack(side="left")
+
+        # ── Botón Cancelar (gris cuando no ejecuta) ──────────────────────
+        self.btn_cancel = tk.Button(self, text="✕  Cancelar",
                   font=("Segoe UI", 10, "bold"),
-                  bg="#e2e8f0", fg="#6b7280", activebackground="#fca5a5",
-                  relief="flat", cursor="hand2", padx=12, pady=8,
+                  bg="#d1d5db", fg="#6b7280", activebackground="#f87171",
+                  relief="flat", cursor="hand2", padx=16, pady=8,
                   state="disabled", command=self._on_cancel)
-        self.btn_cancel.pack(side="left")
+        self.btn_cancel.pack(pady=(0, 8))
 
         # ── Selector de estilo ───────────────────────────────────────────
         style_frame = tk.Frame(self, bg=BLANCO, highlightthickness=1,
-                               highlightbackground="#e2e8f0")
-        style_frame.pack(fill="x", padx=24, pady=(0, 4))
-        tk.Label(style_frame, text="Estilo de salida:",
-                 font=("Segoe UI", 9, "bold"), fg=AZUL, bg=BLANCO,
-                 padx=10, pady=6).grid(row=0, column=0, sticky="w")
-        tk.Radiobutton(style_frame, text="V1 — Estilo actual",
+                               highlightbackground="#cbd5e1", relief="flat")
+        style_frame.pack(fill="x", padx=24, pady=(0, 6))
+        tk.Label(style_frame, text="📋 Estilo de salida:",
+                 font=("Segoe UI", 10, "bold"), fg=AZUL, bg=BLANCO,
+                 padx=10, pady=7).grid(row=0, column=0, sticky="w")
+        tk.Radiobutton(style_frame, text="Estilo Nuevo (moderno)",
                        variable=self.style_var, value='v1',
-                       font=("Segoe UI", 9), fg="#334155", bg=BLANCO,
+                       font=("Segoe UI", 10), fg="#1e293b", bg=BLANCO,
                        activebackground=BLANCO, selectcolor=BLANCO,
                        cursor="hand2").grid(row=0, column=1, sticky="w", padx=4)
-        tk.Radiobutton(style_frame, text="V2 — Estilo universitario (formal)",
+        tk.Radiobutton(style_frame, text="Estilo Universitario Formal",
                        variable=self.style_var, value='v2',
-                       font=("Segoe UI", 9), fg="#334155", bg=BLANCO,
+                       font=("Segoe UI", 10), fg="#1e293b", bg=BLANCO,
                        activebackground=BLANCO, selectcolor=BLANCO,
                        cursor="hand2").grid(row=0, column=2, sticky="w", padx=4)
 
@@ -160,14 +165,15 @@ class App(TkinterDnD.Tk):
 
         # ── Log ──────────────────────────────────────────────────────────
         log_frame = tk.Frame(self, bg=FONDO)
-        log_frame.pack(fill="both", expand=True, padx=24, pady=(8, 16))
-        tk.Label(log_frame, text="Registro:", font=("Segoe UI", 9, "bold"),
-                 fg="#334155", bg=FONDO, anchor="w").pack(fill="x")
+        log_frame.pack(fill="both", expand=True, padx=24, pady=(8, 12))
+        tk.Label(log_frame, text="📋 Registro de actividad:",
+                 font=("Segoe UI", 10, "bold"),
+                 fg=AZUL, bg=FONDO, anchor="w").pack(fill="x", pady=(0, 6))
         self.log = scrolledtext.ScrolledText(log_frame, height=9,
                                              font=("Consolas", 9),
                                              bg="#1e293b", fg="#e2e8f0",
                                              insertbackground="white",
-                                             relief="flat", state="disabled")
+                                             relief="solid", borderwidth=1, state="disabled")
         self.log.pack(fill="both", expand=True)
         self.log.tag_config("ok",   foreground="#4ade80")
         self.log.tag_config("err",  foreground="#f87171")
@@ -175,13 +181,93 @@ class App(TkinterDnD.Tk):
         self.log.tag_config("dim",  foreground="#64748b")
         self.log.tag_config("warn", foreground="#fbbf24")
 
-        # Pie de ventana: texto pequeño
-        footer = tk.Frame(self, bg=FONDO)
-        footer.pack(fill="x", side="bottom", pady=(0, 2))
-        tk.Label(footer, text="Made for Departamento de Educacion Virtual by MM.",
-             font=("Segoe UI", 8), fg="#64748b", bg=FONDO, anchor="e").pack(fill="x", padx=8)
+        # ── Pie de ventana ──────────────────────────────────────────────────
+        footer = tk.Frame(self, bg="#e2e8f0", relief="solid", borderwidth=1)
+        footer.pack(fill="x", side="bottom", pady=0)
+        footer_label = tk.Label(footer, text="Made for Unadeca Virtual by Marvin M.",
+             font=("Segoe UI", 11, "bold"), fg="#334155", bg="#e2e8f0", anchor="center", cursor="hand2")
+        footer_label.pack(fill="x", padx=8, pady=8)
+        footer_label.bind("<Button-1>", self._on_marvin_click)  # Click Marvin M for easter egg
 
     # ── Eventos ──────────────────────────────────────────────────────────
+    def _on_marvin_click(self, event):
+        """Easter egg: click Marvin M 5 times to open website."""
+        self.marvin_clicks += 1
+        if self.marvin_clicks == 5:
+            self.marvin_clicks = 0
+            import webbrowser
+            webbrowser.open("https://www.moncadev.com")
+            self._log("  🌐 Abriendo www.moncadev.com...\n", "info")
+
+    def _on_logo_click(self, event):
+        """Easter egg: click logo 5 times for a surprise."""
+        self.easter_egg_clicks += 1
+        if self.easter_egg_clicks == 5:
+            self.easter_egg_clicks = 0
+            self.after(0, self._trigger_easter_egg)
+
+    def _trigger_easter_egg(self):
+        """Display cool retro arcade game animation - drawn gradually."""
+        self._log("\n" * 2, "")
+        self._log("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n", "info")
+        self._log("┃  ¡Estás tan aburrido que encontraste un easter egg! ┃\n", "ok")
+        self._log("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n", "info")
+        self._log("\n", "")
+
+        # Draw spaceship line by line with small delay
+        spaceship_lines = [
+            "                          /^\\\n",
+            "                         / | \\\n",
+            "                        |  |  |\n",
+            "                         \\ | /\n",
+            "                          \\|/\n",
+            "                           V\n",
+        ]
+        for line in spaceship_lines:
+            self._log(line, "warn")
+            self.update()
+        self._log("\n", "")
+
+        # Draw enemies coming down
+        enemies_waves = [
+            "                  ^-^\n",
+            "                 |-+-|\n",
+            "                 ^-^\n",
+            "\n",
+            "              ^-^       ^-^\n",
+            "             |-+-|   |-+-|\n",
+            "             ^-^     ^-^\n",
+            "\n",
+            "          ^-^   ^-^   ^-^   ^-^\n",
+            "         |-+-| |-+-| |-+-| |-+-|\n",
+            "         ^-^   ^-^   ^-^   ^-^\n",
+        ]
+        for line in enemies_waves:
+            self._log(line, "warn")
+            self.update()
+
+        self._log("\n", "")
+
+        # Draw explosion
+        explosion_lines = [
+            "                    *** BOOM ***\n",
+            "                   *   ***   *\n",
+            "                  *  * *** *  *\n",
+            "                   *   ***   *\n",
+            "                    *** BOOM ***\n",
+        ]
+        for line in explosion_lines:
+            self._log(line, "err")
+            self.update()
+
+        self._log("\n", "")
+        self._log("┌─────────────────────────────────────────────────────┐\n", "info")
+        self._log("│                                                     │\n", "info")
+        self._log("│                    ¡GAME OVER!                     │\n", "err")
+        self._log("│                                                     │\n", "info")
+        self._log("└─────────────────────────────────────────────────────┘\n", "info")
+        self._log("\n", "")
+
     def _on_drop(self, event):
         self._run(_parse_paths(event.data))
 
@@ -209,12 +295,12 @@ class App(TkinterDnD.Tk):
     def _set_running_state(self):
         self.btn_browse.config(state="disabled")
         self.btn_pdf_only.config(state="disabled")
-        self.btn_cancel.config(state="normal", bg="#fee2e2", fg="#991b1b")
+        self.btn_cancel.config(state="normal", bg="#fecaca", fg="#b91c1c")
 
     def _set_idle_state(self):
         self.btn_browse.config(state="normal")
         self.btn_pdf_only.config(state="normal")
-        self.btn_cancel.config(state="disabled", bg="#e2e8f0", fg="#6b7280")
+        self.btn_cancel.config(state="disabled", bg="#f5f5f5", fg="#9ca3af")
 
     def _run(self, paths):
         style = self.style_var.get()
@@ -227,6 +313,7 @@ class App(TkinterDnD.Tk):
         self.after(0, self._reset_progress)
         self._log(f"── {len(paths)} archivo(s) recibido(s) ──\n", "info")
         errores = 0
+        all_diagnostics = []
         for path in paths:
             if self.cancel_event.is_set():
                 break
@@ -243,8 +330,10 @@ class App(TkinterDnD.Tk):
             self._log(f"\n{name}\n", "info")
             out_dir = os.path.dirname(os.path.abspath(path))
             try:
-                generate_file(path, out_dir, on_progress=self._on_progress,
+                result = generate_file(path, out_dir, on_progress=self._on_progress,
                               style=style, cancel_check=self.cancel_event.is_set)
+                if result and result.get('summary'):
+                    all_diagnostics.append(result['summary'])
                 self._log(f"  ✓ Listo → {out_dir}\n", "ok")
             except Exception as exc:
                 self._log(f"  ✗ {exc}\n", "err")
@@ -256,6 +345,12 @@ class App(TkinterDnD.Tk):
             self._log(f"\n⚠ {errores} error(es).\n", "err")
         else:
             self._log("\n✅ ¡Todo generado correctamente!\n", "ok")
+
+        # Display diagnostics summary
+        if all_diagnostics:
+            for diag in all_diagnostics:
+                self.after(0, lambda d=diag: self._log(d, "warn"))
+
         self.after(0, lambda: self.prog_label.config(text="Completado"))
         self.after(0, self._set_idle_state)
 
@@ -281,6 +376,7 @@ class App(TkinterDnD.Tk):
         self.after(0, self._reset_progress)
         self._log(f"── {len(paths)} archivo(s) — Solo PDFs ──\n", "info")
         errores = 0
+        all_diagnostics = []
         for path in paths:
             if self.cancel_event.is_set():
                 break
@@ -297,8 +393,10 @@ class App(TkinterDnD.Tk):
             self._log(f"\n{name}\n", "info")
             out_dir = os.path.dirname(os.path.abspath(path))
             try:
-                generate_pdfs_only_file(path, out_dir, on_progress=self._on_progress,
+                result = generate_pdfs_only_file(path, out_dir, on_progress=self._on_progress,
                                         cancel_check=self.cancel_event.is_set)
+                if result and result.get('summary'):
+                    all_diagnostics.append(result['summary'])
                 self._log(f"  ✓ PDFs listos → {out_dir}\n", "ok")
             except Exception as exc:
                 self._log(f"  ✗ {exc}\n", "err")
@@ -309,6 +407,12 @@ class App(TkinterDnD.Tk):
             self._log(f"\n⚠ {errores} error(es).\n", "err")
         else:
             self._log("\n✅ PDFs generados correctamente.\n", "ok")
+
+        # Display diagnostics summary
+        if all_diagnostics:
+            for diag in all_diagnostics:
+                self.after(0, lambda d=diag: self._log(d, "warn"))
+
         self.after(0, lambda: self.prog_label.config(text="Completado"))
         self.after(0, self._set_idle_state)
 

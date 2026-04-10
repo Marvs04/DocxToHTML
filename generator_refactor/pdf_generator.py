@@ -8,7 +8,9 @@ from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
 )
+
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.utils import ImageReader
 
 from generator_refactor.writer import _win_long, ensure_directory
 
@@ -49,14 +51,26 @@ def _styles():
 def _header_footer(canvas, doc, course_name, section_title):
     canvas.saveState()
     w, h = doc.pagesize
-    # Header bar
+    # Header bar (más grueso)
+    header_height = 52  # px, más grueso
     canvas.setFillColor(AZUL)
-    canvas.rect(0, h - 36, w, 36, fill=1, stroke=0)
+    canvas.rect(0, h - header_height, w, header_height, fill=1, stroke=0)
+    # Logo a la derecha
+    logo_path = os.path.join(os.path.dirname(__file__), "UNADECA_Logo_Virtual_Oficial-H.png")
+    logo_drawn = False
+    try:
+        logo = ImageReader(logo_path)
+        logo_height = 36  # px (más grande)
+        logo_width = 120  # px (ajustar según proporción real)
+        # Ubicar el logo a la derecha, dejando margen
+        canvas.drawImage(logo, w - logo_width - 1.1 * cm, h - header_height + (header_height - logo_height) / 2, width=logo_width, height=logo_height, mask='auto', preserveAspectRatio=True)
+        logo_drawn = True
+    except Exception as e:
+        pass
+    # Nombre del curso alineado a la izquierda, centrado verticalmente
     canvas.setFillColor(BLANCO)
-    canvas.setFont("Helvetica-Bold", 9)
-    canvas.drawString(1.5 * cm, h - 24, course_name)
-    canvas.setFont("Helvetica", 8)
-    canvas.drawRightString(w - 1.5 * cm, h - 24, section_title)
+    canvas.setFont("Helvetica-Bold", 13)
+    canvas.drawString(1.5 * cm, h - header_height / 2 + 2, course_name)
     # Footer
     canvas.setFillColor(GRIS_TEXT)
     canvas.setFont("Helvetica", 7)
@@ -122,8 +136,8 @@ def generate_rubrica_pdf(rubrica_title, table_obj, out_path, course_name):
 
     doc.build(
         story,
-        onFirstPage=lambda c, d: _header_footer(c, d, course_name, "Rúbrica evaluativa"),
-        onLaterPages=lambda c, d: _header_footer(c, d, course_name, "Rúbrica evaluativa"),
+        onFirstPage=lambda c, d: _header_footer(c, d, course_name, None),
+        onLaterPages=lambda c, d: _header_footer(c, d, course_name, None),
     )
 
 
@@ -134,8 +148,10 @@ def generate_cronograma_pdf(weeks_map, out_path, course_name):
     doc = SimpleDocTemplate(
         _win_long(out_path),
         pagesize=landscape(A4),
-        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
-        topMargin=1.8 * cm, bottomMargin=1.2 * cm,
+        leftMargin=(1.0 if sum(len(u) for u in weeks_map.values()) > 14 else 1.5) * cm,
+        rightMargin=(1.0 if sum(len(u) for u in weeks_map.values()) > 14 else 1.5) * cm,
+        topMargin=1.8 * cm,
+        bottomMargin=(1.0 if sum(len(u) for u in weeks_map.values()) > 14 else 1.2) * cm,
     )
 
     story = [
@@ -192,8 +208,8 @@ def generate_cronograma_pdf(weeks_map, out_path, course_name):
 
     doc.build(
         story,
-        onFirstPage=lambda c, d: _header_footer(c, d, course_name, "Cronograma"),
-        onLaterPages=lambda c, d: _header_footer(c, d, course_name, "Cronograma"),
+        onFirstPage=lambda c, d: _header_footer(c, d, course_name, None),
+        onLaterPages=lambda c, d: _header_footer(c, d, course_name, None),
     )
 
 

@@ -18,6 +18,8 @@ def is_week_marker(value):
 	low = (value or '').strip().lower()
 	if not low or 'semana' in low:
 		return False
+	# Allow newlines/multiline format (e.g., "12\n11" or "12 y 13")
+	low = low.replace('\n', ',').replace('\r', ',')
 	return bool(re.fullmatch(r'\d+(?:\s*(?:y|a|-|,)\s*\d+)*', low))
 
 
@@ -81,7 +83,7 @@ def parse_cronograma(tbl):
 
 			unit_title = current_unit_title
 			rest_contents = contents
-			m = re.match(r'^(Unidad\s*\d+\.[^\n\r]*)', contents, re.IGNORECASE)
+			m = re.match(r'^(Unidad\s*\d+[:.].*?)(?:\n|$)', contents, re.IGNORECASE)
 			if m:
 				unit_title = m.group(1).strip()
 				rest_contents = contents[m.end():].strip()

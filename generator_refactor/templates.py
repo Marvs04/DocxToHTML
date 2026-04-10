@@ -3,8 +3,7 @@
 Migrados literalmente desde generate_html.py para mantener paridad en la fase 5.
 """
 
-MAIN_TEMPLATE = """<!-- Titulo en indice del curso: -->
-🧭 Generalidades del curso Sección General
+MAIN_TEMPLATE = """
 
 <!-- Acordeón maestro | Generalidades -->
 <div class="card shadow-sm border-0 mb-3" style="border-left: 8px solid #002E62; border-radius: 14px;">
